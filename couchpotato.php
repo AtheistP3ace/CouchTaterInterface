@@ -7,17 +7,18 @@
      * Added some extra security in as well. Some of that extra security
      * will require code added to other parts of your site. All this code
      * does not use any of the wrappers from original gazelle code
-     * except Cache which also can be stripped out.
-     * Mostly you only need your specific SQL added.
+     * except Cache which also can be stripped out if your site is small.
+     * Mostly you only need your specific SQL added to match your tables.
+     * 
      */
 
     // Make sure we can use the mysqli extension
     if (!extension_loaded ('mysqli')) {
-        echo json_encode(array("Error" => "Mysqli Extension not loaded."));
+        echo json_encode(array("error" => "Mysqli Extension not loaded."));
         die();
     }
 
-    // Lets prevent people from clearing feeds (Removable)
+    // Lets prevent people from clearing cache (Removable)
     if (isset($_REQUEST['clearcache'])) {
         unset($_REQUEST['clearcache']);
     }
@@ -29,7 +30,7 @@
     require SERVER_ROOT . '/classes/class_cache.php';
     $Cache = new CACHE;
 
-    // Get the Username, passkey and\or IMDb ID and search string from request
+    // Get the Username, passkey and\or IMDb ID\search string from request
     $Username = $_REQUEST['user'];
     $PassKey = $_REQUEST['passkey'];
     $IMDbID = $_REQUEST['imdbid'];
@@ -44,12 +45,12 @@
         die();
     }
 
-    // Connect to DB manually for exposed service. Variables below come form config.php loaded above
+    // Connect to DB manually for exposed service. Variables below come from config.php loaded above
     $DbLink = mysqli_connect(SQLHOST, SQLLOGIN, SQLPASS, SQLDB, SQLPORT, SQLSOCK) or die("Error: " . mysqli_error($DbLink));
 
     // Get needed data on user attached to Username and passkey
     // Forcing both values to be passed makes security a bit harder and allows us to make a couch potato key
-    $FindUserQuery = $DbLink->query("SUDO-SELECT
+    $FindUserQuery = $DbLink->query("SELECT
                                     UserID,
                                     CouchPotatoKey,
                                     AuthorizationKey
@@ -69,11 +70,14 @@
 
     /*
      * The next bit is all for security. You can remove this if you don't care about that.
+     * It basically checks if user is an enabled user, has permissions to access service,
+     * user enabled access from their profile to generate a hashed passkey. None is
+     * necessary but helpful if security is your thing.
      */
 
     // Load if user is enabled and cache for later
     if (!$Enabled = $Cache->get_value ('enabled_' . $UserID)) {
-        $UserEnabled = $DbLink->query("SUDO-SELECT Enabled FROM some_user_table WHERE UserID = '$UserID'");
+        $UserEnabled = $DbLink->query("SELECT Enabled FROM some_user_table WHERE UserID = '$UserID'");
         $Enabled = mysqli_fetch_array($UserEnabled);
         $Enabled = $Enabled['Enabled'];
         $Cache->cache_value ('enabled_' . $UserID, $Enabled, 259200);
@@ -81,17 +85,17 @@
 
     // Load if user has permissions to access Couch Potato and cache for later (Removable)
     if (!$CPPermission = $Cache->get_value ('this_user_can_pull_cp_feed_' . $UserID)) {
-        $UserAllowed = $DbLink->query("SUDO-SELECT UserPermission FROM some_user_table WHERE UserID = '$UserID'");
+        $UserAllowed = $DbLink->query("SELECT UserPermission FROM some_user_table WHERE UserID = '$UserID'");
         $PermissionID = mysqli_fetch_array($UserAllowed);
         $PermissionID = $PermissionID['UserPermission'];
         if (!$Permission = $Cache->get_value ('permission_' . $PermissionID)) {
-            $CheckPerms = $DbLink->query("SUDO-SELECT SpecificPermissions FROM some_permissions_table WHERE PermissionID = '$PermissionID'");
+            $CheckPerms = $DbLink->query("SELECT SpecificPermissions FROM some_permissions_table WHERE PermissionID = '$PermissionID'");
             $Permission = mysqli_fetch_array($CheckPerms);
             $Permission['SpecificPermissions'] = unserialize ($Permission['Permissions']);
 
             // If class level permissions is empty check custom permissions (Removable)
             if (empty($Permission['Permissions']['this_user_can_pull_cp_feed_'])) {
-                $UserCustom = $DbLink->query("SUDO-SELECT CustomPermissions FROM some_user_table WHERE ID = '$UserID'");
+                $UserCustom = $DbLink->query("SELECT CustomPermissions FROM some_user_table WHERE ID = '$UserID'");
                 $CustomPermission = mysqli_fetch_array($UserCustom);
                 $CustomPermission['CustomPermissions'] = unserialize ($CustomPermission['CustomPermissions']);
                 $Permission['Permissions'] = array_merge ($Permission['Permissions'], $CustomPermission['CustomPermissions']);
@@ -105,7 +109,7 @@
     // Load if user has enabled Couch Potato Access from their profile and cache for later (Removable)
     // Forcing user to enable on profile is where generation of couch potato key is
     if (!$CPEnabled = $Cache->get_value ('user_enabled_cp_on_profile' . $UserID)) {
-        $UserCPEnabled = $DbLink->query("SUDO-SELECT CouchPotatoOn FROM some_user_table WHERE UserID = '$UserID'");
+        $UserCPEnabled = $DbLink->query("SELECT CouchPotatoOn FROM some_user_table WHERE UserID = '$UserID'");
         $CPEnabled = mysqli_fetch_array($UserCPEnabled);
         $CPEnabled = $CPEnabled['CouchPotatoOn'];
         $Cache->cache_value ('user_enabled_cp_on_profile' . $UserID, $CPEnabled, 259200);
@@ -118,7 +122,7 @@
     }
     else {
         // Things look good, let's find this media
-        $MediaQuery = "SUDO-SELECT
+        $MediaQuery = "SELECT
                        ID,
                        Name,
                        FileList,
