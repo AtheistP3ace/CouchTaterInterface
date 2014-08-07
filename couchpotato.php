@@ -31,16 +31,16 @@
     $Cache = new CACHE;
 
     // Get the Username, passkey and\or IMDb ID\search string from request
-    $Username = $_REQUEST['user'];
-    $PassKey = $_REQUEST['passkey'];
-    $IMDbID = $_REQUEST['imdbid'];
-    $SearchString = $_REQUEST['search'];
+    $Username = db_string($_REQUEST['user']);
+    $PassKey = db_string($_REQUEST['passkey']);
+    $IMDbID = db_string($_REQUEST['imdbid']);
+    $SearchString = db_string($_REQUEST['search']);
 
     // Set content type
     header('Content-Type: application/json');
 
     // Do parameters match what we expect?
-    if (empty($PassKey) || strlen($PassKey) != 32 || (empty($IMDbID) && empty($SearchString)) || empty($Username)) {
+    if (empty($_REQUEST['passkey']) || strlen($_REQUEST['passkey']) != 32 || (empty($_REQUEST['imdbid']) && empty($_REQUEST['search'])) || empty($_REQUEST['user'])) {
         echo json_encode(array("error" => "Incorrect parameters."));
         die();
     }
