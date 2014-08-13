@@ -30,12 +30,6 @@
     require SERVER_ROOT . '/classes/class_cache.php';
     $Cache = new CACHE;
 
-    // Get the Username, passkey and\or IMDb ID\search string from request
-    $Username = db_string($_REQUEST['user']);
-    $PassKey = db_string($_REQUEST['passkey']);
-    $IMDbID = db_string($_REQUEST['imdbid']);
-    $SearchString = db_string($_REQUEST['search']);
-
     // Set content type
     header('Content-Type: application/json');
 
@@ -47,6 +41,12 @@
 
     // Connect to DB manually for exposed service. Variables below come from config.php loaded above
     $DbLink = mysqli_connect(SQLHOST, SQLLOGIN, SQLPASS, SQLDB, SQLPORT, SQLSOCK) or die("Error: " . mysqli_error($DbLink));
+
+    // Get the Username, passkey and\or IMDb ID\search string from request
+    $Username = $DbLink->escape_string($_REQUEST['user']);
+    $PassKey = $DbLink->escape_string($_REQUEST['passkey']);
+    $IMDbID = $DbLink->escape_string($_REQUEST['imdbid']);
+    $SearchString = $DbLink->escape_string($_REQUEST['search']);
 
     // Get needed data on user attached to Username and passkey
     // Forcing both values to be passed makes security a bit harder and allows us to make a couch potato key
